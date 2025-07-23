@@ -1,0 +1,52 @@
+@startuml C3_ML_Pipeline_Components
+
+!include ../C4_Component.puml
+
+title Компонентная диаграмма ML Pipeline - Альтернативное решение
+
+Container(video_analytics, "Video Analytics", "C++", "Видеоаналитика")
+Container(edge_cache, "Edge Cache", "Redis", "Кеш результатов")
+Container(stream_processor, "Stream Processor", "Python, Faust", "Потоковая обработка")
+ContainerDb(edge_db, "Edge Database", "PostgreSQL", "Локальная БД")
+System_Ext(ml_cloud, "ML Cloud Service", "Облачный ML сервис")
+System_Ext(ml_training, "ML Training Service", "Сервис обучения моделей")
+
+Container_Boundary(ml_pipeline, "ML Pipeline") {
+    Component(pipeline_orchestrator, "Pipeline Orchestrator", "Python, Ray", "Оркестрация ML конвейера")
+    Component(model_manager, "Model Manager", "Python", "Управление ML моделями")
+    Component(inference_engine, "Inference Engine", "Python, ONNX Runtime", "Выполнение инференса")
+    Component(preprocessing, "Preprocessing Module", "Python, OpenCV", "Предобработка данных")
+    Component(postprocessing, "Postprocessing Module", "Python", "Постобработка результатов")
+    Component(batch_processor, "Batch Processor", "Python", "Пакетная обработка")
+    Component(stream_handler, "Stream Handler", "Python", "Обработка потоков")
+    Component(model_cache, "Model Cache", "Python", "Кеш моделей в памяти")
+    Component(metrics_collector, "Metrics Collector", "Python", "Сбор метрик производительности")
+    Component(feature_extractor, "Feature Extractor", "Python", "Извлечение признаков")
+}
+
+' Поток обработки видео
+Rel(video_analytics, stream_handler, "Видеокадры", "gRPC Stream")
+Rel(stream_handler, preprocessing, "Сырые кадры", "In-memory")
+Rel(preprocessing, feature_extractor, "Нормализованные данные", "NumPy arrays")
+Rel(feature_extractor, inference_engine, "Векторы признаков", "In-memory")
+Rel(inference_engine, postprocessing, "Сырые предсказания", "In-memory")
+Rel(postprocessing, edge_cache, "Результаты анализа", "Redis Protocol")
+
+' Управление моделями
+Rel(ml_cloud, model_manager, "Загрузка моделей", "HTTPS")
+Rel(model_manager, model_cache, "Кеширование моделей", "In-memory")
+Rel(model_cache, inference_engine, "Загрузка в runtime", "ONNX")
+Rel(ml_training, model_manager, "Обновления моделей", "gRPC")
+
+' Оркестрация и мониторинг
+Rel(pipeline_orchestrator, stream_handler, "Управление потоками", "Ray API")
+Rel(pipeline_orchestrator, batch_processor, "Запуск пакетов", "Ray API")
+Rel(batch_processor, edge_db, "Сохранение результатов", "SQL")
+Rel(metrics_collector, pipeline_orchestrator, "Метрики производительности", "Internal API")
+Rel(stream_processor, pipeline_orchestrator, "Запросы обработки", "gRPC")
+
+' Обратная связь
+Rel(postprocessing, metrics_collector, "Статистика обработки", "Internal API")
+Rel(metrics_collector, ml_training, "Данные для переобучения", "HTTPS")
+
+@enduml

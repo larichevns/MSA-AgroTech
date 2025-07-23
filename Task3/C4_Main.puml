@@ -1,0 +1,173 @@
+@startuml C4_Event_Router_Code
+
+!include ../C4_Component.puml
+
+
+title Диаграмма кода Event Router - Основное решение
+
+package "Event Router Component" {
+    
+    package "api" {
+        class EventRouterAPI {
+            +Start() error
+            +Stop() error
+            +RegisterHandler(eventType string, handler EventHandler)
+            +RouteEvent(event Event) error
+        }
+    }
+    
+    package "core" {
+        interface Event {
+            +GetID() string
+            +GetType() string
+            +GetTimestamp() time.Time
+            +GetSource() string
+            +GetPayload() []byte
+        }
+        
+        class DeviceEvent {
+            -id: string
+            -eventType: string
+            -timestamp: time.Time
+            -deviceID: string
+            -payload: map[string]interface{}
+            +GetID() string
+            +GetType() string
+            +GetTimestamp() time.Time
+            +GetSource() string
+            +GetPayload() []byte
+        }
+        
+        class AlertEvent {
+            -id: string
+            -severity: string
+            -timestamp: time.Time
+            -source: string
+            -message: string
+            -metadata: map[string]string
+            +GetID() string
+            +GetType() string
+            +GetTimestamp() time.Time
+            +GetSource() string
+            +GetPayload() []byte
+        }
+        
+        interface EventHandler {
+            +Handle(event Event) error
+            +CanHandle(eventType string) bool
+        }
+    }
+    
+    package "routing" {
+        class Router {
+            -handlers: map[string][]EventHandler
+            -rules: []RoutingRule
+            -metrics: MetricsCollector
+            -logger: Logger
+            +AddHandler(pattern string, handler EventHandler)
+            +Route(event Event) error
+            -findHandlers(event Event) []EventHandler
+            -applyRules(event Event) Event
+        }
+        
+        class RoutingRule {
+            -name: string
+            -condition: Predicate
+            -action: Action
+            +Apply(event Event) Event
+            +Matches(event Event) bool
+        }
+        
+        interface Predicate {
+            +Evaluate(event Event) bool
+        }
+        
+        interface Action {
+            +Execute(event Event) Event
+        }
+    }
+    
+    package "handlers" {
+        class CacheHandler {
+            -cache: CacheManager
+            -ttl: time.Duration
+            +Handle(event Event) error
+            +CanHandle(eventType string) bool
+        }
+        
+        class QueueHandler {
+            -queue: QueueManager
+            -batchSize: int
+            -flushInterval: time.Duration
+            +Handle(event Event) error
+            +CanHandle(eventType string) bool
+        }
+        
+        class MetricsHandler {
+            -collector: MetricsCollector
+            +Handle(event Event) error
+            +CanHandle(eventType string) bool
+        }
+        
+        class ValidationHandler {
+            -validators: []Validator
+            +Handle(event Event) error
+            +CanHandle(eventType string) bool
+        }
+    }
+    
+    package "middleware" {
+        class RateLimiter {
+            -limiter: rate.Limiter
+            -burst: int
+            +Process(event Event, next EventHandler) error
+        }
+        
+        class CircuitBreaker {
+            -threshold: int
+            -timeout: time.Duration
+            -state: State
+            +Process(event Event, next EventHandler) error
+        }
+        
+        class RetryHandler {
+            -maxRetries: int
+            -backoff: BackoffStrategy
+            +Process(event Event, next EventHandler) error
+        }
+    }
+    
+    package "utils" {
+        interface Logger {
+            +Info(msg string, fields ...Field)
+            +Error(msg string, err error, fields ...Field)
+            +Debug(msg string, fields ...Field)
+        }
+        
+        interface MetricsCollector {
+            +IncrementCounter(name string, tags ...Tag)
+            +RecordHistogram(name string, value float64, tags ...Tag)
+            +RecordGauge(name string, value float64, tags ...Tag)
+        }
+    }
+}
+
+' Relationships
+EventRouterAPI --> Router : uses
+Router --> EventHandler : calls
+DeviceEvent ..|> Event : implements
+AlertEvent ..|> Event : implements
+CacheHandler ..|> EventHandler : implements
+QueueHandler ..|> EventHandler : implements
+MetricsHandler ..|> EventHandler : implements
+ValidationHandler ..|> EventHandler : implements
+Router --> RoutingRule : applies
+RoutingRule --> Predicate : uses
+RoutingRule --> Action : uses
+Router --> MetricsCollector : reports to
+Router --> Logger : logs to
+RateLimiter --> EventHandler : wraps
+CircuitBreaker --> EventHandler : wraps
+RetryHandler --> EventHandler : wraps
+
+@enduml

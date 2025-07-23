@@ -1,0 +1,42 @@
+@startuml C1_Альтернативное_Решение_Свиноводство
+
+!include ../C4_Context.puml
+
+title Контекстная диаграмма системы мониторинга свиноводства - Альтернативное решение
+
+Person(operator, "Оператор фермы", "Контролирует состояние животных и оборудования")
+Person(vet, "Ветеринар", "Отслеживает здоровье поголовья")
+Person(technician, "Техник", "Обслуживает оборудование")
+
+System(pig_edge, "Edge-система фермы", "Автономная система мониторинга на каждой ферме")
+System(pig_cloud, "Облачная платформа", "Централизованная система управления и аналитики")
+
+System_Ext(existing_kafka, "Apache Kafka", "Существующая шина данных АгроТех")
+System_Ext(existing_erp, "1С:Агро", "ERP система компании")
+System_Ext(existing_dwh, "ClickHouse", "Корпоративное хранилище данных")
+System_Ext(existing_bi, "Power BI", "Система бизнес-аналитики")
+System_Ext(saas_monitoring, "SaaS мониторинг", "Внешний сервис мониторинга инфраструктуры")
+System_Ext(ml_cloud, "ML Cloud Service", "Облачный сервис машинного обучения")
+System_Ext(iot_devices, "IoT оборудование", "Камеры, датчики, контроллеры кормушек")
+System_Ext(mobile_app_new, "Новое мобильное приложение", "Специализированное приложение для свиноводства")
+System_Ext(notification_gateway, "Gateway уведомлений", "Централизованный сервис уведомлений")
+
+Rel(operator, pig_edge, "Локальный мониторинг и управление")
+Rel(operator, mobile_app_new, "Мобильный доступ к системе")
+Rel(vet, pig_cloud, "Анализ здоровья поголовья")
+Rel(technician, pig_edge, "Диагностика оборудования")
+
+Rel(pig_edge, pig_cloud, "Синхронизация данных", "gRPC/REST")
+Rel(pig_cloud, existing_kafka, "Интеграция с корпоративной шиной", "Kafka Protocol")
+Rel(pig_cloud, existing_erp, "Обмен данными", "REST API")
+Rel(pig_cloud, existing_dwh, "Экспорт аналитики", "ETL")
+Rel(existing_bi, existing_dwh, "Читает данные", "SQL")
+Rel(pig_cloud, saas_monitoring, "Мониторинг инфраструктуры", "API")
+Rel(pig_cloud, ml_cloud, "Использует ML-сервисы", "REST API")
+Rel(iot_devices, pig_edge, "Локальный сбор данных", "MQTT/Modbus")
+Rel(mobile_app_new, pig_edge, "Локальный доступ без интернета", "REST/WebSocket")
+Rel(mobile_app_new, pig_cloud, "Облачный доступ", "REST API")
+Rel(pig_cloud, notification_gateway, "Управление уведомлениями", "REST API")
+Rel(pig_edge, notification_gateway, "Критические уведомления", "REST API")
+
+@enduml

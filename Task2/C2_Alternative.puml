@@ -1,0 +1,115 @@
+@startuml C2_Альтернативное_Решение_Контейнеры
+
+!include ../C4_Container.puml
+
+title Контейнерная диаграмма системы мониторинга свиноводства - Альтернативное решение
+
+Person(operator, "Оператор фермы", "Контролирует состояние животных")
+Person(manager, "Менеджер", "Анализирует показатели")
+Person(vet, "Ветеринар", "Отслеживает здоровье")
+
+System_Boundary(edge_system, "Edge система фермы") {
+    Container_Boundary(edge_core, "Edge Core - Ядро локальной системы") {
+        Container(edge_orchestrator, "Edge Orchestrator", "Go, K3s", "Оркестрация контейнеров")
+        Container(local_api, "Local API Server", "Go, Gin", "Локальный API сервер")
+        Container(mqtt_broker, "MQTT Broker", "Mosquitto", "Локальный брокер сообщений")
+        ContainerDb(edge_db, "Edge Database", "PostgreSQL", "Локальная база данных")
+        ContainerDb(edge_cache, "Edge Cache", "Redis", "Кеш и очередь сообщений")
+    }
+    
+    Container_Boundary(edge_processing, "Edge Processing - Обработка данных") {
+        Container(stream_processor, "Stream Processor", "Python, Faust", "Потоковая обработка")
+        Container(ml_pipeline, "ML Pipeline", "Python, Ray", "Конвейер ML обработки")
+        Container(video_analytics, "Video Analytics", "C++, GStreamer", "Видеоаналитика")
+        Container(iot_gateway, "IoT Gateway", "Node.js, Node-RED", "Шлюз IoT устройств")
+    }
+    
+    Container(mobile_app, "Специализированное мобильное приложение", "React Native", "Приложение для операторов")
+}
+
+System_Boundary(cloud_platform, "Облачная платформа") {
+    Container_Boundary(api_layer, "API Layer - Слой API") {
+        Container(cloud_gateway, "Cloud API Gateway", "AWS API Gateway", "Облачный шлюз API")
+        Container(graphql_server, "GraphQL Server", "Node.js, Apollo", "GraphQL API")
+        Container(auth_service, "Auth Service", "Go, OAuth2", "Сервис аутентификации")
+    }
+    
+    Container_Boundary(farm_management, "Farm Management - Управление фермами") {
+        Container(farm_registry, "Farm Registry", "Java, Quarkus", "Реестр ферм")
+        Container(config_service, "Configuration Service", "Go", "Управление конфигурациями")
+        Container(device_registry, "Device Registry", "Python, FastAPI", "Реестр устройств")
+        ContainerDb(farm_db, "Farm Database", "PostgreSQL", "База данных ферм")
+    }
+    
+    Container_Boundary(livestock_cloud, "Livestock Cloud - Облачное управление поголовьем") {
+        Container(livestock_api, "Livestock API", "Java, Micronaut", "API управления поголовьем")
+        Container(health_service, "Health Service", "Python, FastAPI", "Сервис здоровья")
+        Container(feeding_service, "Feeding Service", "Go", "Сервис кормления")
+        ContainerDb(livestock_cloud_db, "Cloud Livestock DB", "MongoDB", "NoSQL база животных")
+    }
+    
+    Container_Boundary(analytics_platform, "Analytics Platform - Платформа аналитики") {
+        Container(stream_analytics, "Stream Analytics", "Apache Flink", "Потоковая аналитика")
+        Container(batch_processor, "Batch Processor", "Apache Spark", "Пакетная обработка")
+        Container(ml_training, "ML Training Service", "Python, Kubeflow", "Обучение моделей")
+        ContainerDb(analytics_store, "Analytics Store", "Apache Druid", "Хранилище аналитики")
+    }
+    
+    Container_Boundary(monitoring_ops, "Monitoring & Ops - Мониторинг и операции") {
+        Container(telemetry_collector, "Telemetry Collector", "OpenTelemetry", "Сбор телеметрии")
+        Container(alert_engine, "Alert Engine", "Prometheus, AlertManager", "Движок алертов")
+        Container(dashboard_service, "Dashboard Service", "Grafana", "Сервис дашбордов")
+    }
+    
+    Container(web_portal, "Облачный веб-портал", "Next.js", "Портал управления")
+}
+
+System_Ext(kafka, "Apache Kafka", "Корпоративная шина (опционально)")
+System_Ext(erp, "1С:Агро", "ERP система")
+System_Ext(ml_cloud, "AWS SageMaker", "Облачный ML сервис")
+System_Ext(notification_gateway, "AWS SNS", "Облачные уведомления")
+System_Ext(object_storage, "AWS S3", "Объектное хранилище")
+
+' Взаимодействие пользователей
+Rel(operator, mobile_app, "Локальный/удаленный доступ", "HTTPS/WebSocket")
+Rel(manager, web_portal, "Использует", "HTTPS")
+Rel(vet, web_portal, "Использует", "HTTPS")
+
+' Edge взаимодействия
+Rel(iot_gateway, mqtt_broker, "Публикует данные", "MQTT")
+Rel(mqtt_broker, stream_processor, "События устройств", "MQTT")
+Rel(video_analytics, ml_pipeline, "Видео для анализа", "gRPC")
+Rel(ml_pipeline, edge_cache, "Результаты анализа", "Redis Pub/Sub")
+Rel(stream_processor, edge_db, "Сохранение данных", "SQL")
+Rel(local_api, edge_orchestrator, "Управление", "K8s API")
+Rel(mobile_app, local_api, "Локальный доступ", "REST/WebSocket")
+
+' Edge to Cloud синхронизация
+Rel(edge_cache, cloud_gateway, "Синхронизация событий", "gRPC/TLS")
+Rel(edge_db, farm_registry, "Синхронизация состояния", "REST/HTTPS")
+Rel(ml_pipeline, ml_training, "Обратная связь для моделей", "gRPC")
+
+' Cloud взаимодействия
+Rel(cloud_gateway, graphql_server, "Маршрутизация", "HTTP")
+Rel(graphql_server, livestock_api, "Запросы данных", "gRPC")
+Rel(graphql_server, farm_registry, "Запросы ферм", "gRPC")
+Rel(web_portal, graphql_server, "GraphQL запросы", "HTTPS")
+Rel(mobile_app, cloud_gateway, "Облачный доступ", "HTTPS")
+
+' Analytics flow
+Rel(stream_analytics, analytics_store, "Результаты анализа", "HTTP")
+Rel(batch_processor, object_storage, "Обработанные данные", "S3 API")
+Rel(ml_training, ml_cloud, "Обучение моделей", "API")
+Rel(ml_training, ml_pipeline, "Деплой моделей", "Model Registry")
+
+' Monitoring
+Rel(edge_orchestrator, telemetry_collector, "Метрики и логи", "OTLP")
+Rel(telemetry_collector, alert_engine, "Метрики", "Prometheus")
+Rel(alert_engine, notification_gateway, "Критические алерты", "API")
+Rel(dashboard_service, analytics_store, "Данные для визуализации", "SQL")
+
+' Интеграции
+Rel(livestock_api, erp, "Синхронизация данных", "REST API")
+Rel(farm_registry, kafka, "Публикация событий", "Kafka (опционально)")
+
+@enduml

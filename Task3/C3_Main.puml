@@ -1,0 +1,49 @@
+@startuml C3_Edge_Gateway_Components
+
+!include ../C4_Component.puml
+
+title Компонентная диаграмма Edge Gateway - Основное решение
+
+Container(sync_agent, "Sync Agent", "Go", "Агент синхронизации")
+Container(video_processor, "Video Processor", "Python", "Обработка видео")
+Container(device_controller, "Device Controller", "C++", "Управление устройствами")
+ContainerDb(local_storage, "Local Storage", "SQLite + MinIO", "Локальное хранилище")
+System_Ext(kafka, "Apache Kafka", "Корпоративная шина")
+System_Ext(iot_devices, "IoT устройства", "Камеры, датчики, контроллеры")
+
+Container_Boundary(edge_gateway, "Edge Gateway") {
+    Component(api_server, "API Server", "Go, Gin", "REST API для локального доступа")
+    Component(device_manager, "Device Manager", "Go", "Управление подключенными устройствами")
+    Component(event_router, "Event Router", "Go", "Маршрутизация событий")
+    Component(cache_manager, "Cache Manager", "Go, BadgerDB", "Локальное кеширование данных")
+    Component(sync_coordinator, "Sync Coordinator", "Go", "Координация синхронизации")
+    Component(health_monitor, "Health Monitor", "Go", "Мониторинг состояния компонентов")
+    Component(config_manager, "Configuration Manager", "Go", "Управление конфигурациями")
+    Component(security_module, "Security Module", "Go", "Аутентификация и шифрование")
+    Component(protocol_adapters, "Protocol Adapters", "Go", "Адаптеры протоколов IoT")
+    Component(queue_manager, "Queue Manager", "Go", "Управление локальными очередями")
+}
+
+' Внешние взаимодействия
+Rel(iot_devices, protocol_adapters, "Передача данных", "MQTT/Modbus/CoAP")
+Rel(protocol_adapters, device_manager, "Нормализованные данные", "Internal API")
+Rel(device_manager, event_router, "События устройств", "Channels")
+Rel(event_router, queue_manager, "Буферизация событий", "In-memory")
+Rel(queue_manager, sync_coordinator, "Пакеты для синхронизации", "Internal API")
+Rel(sync_coordinator, sync_agent, "Данные для отправки", "gRPC")
+Rel(sync_agent, kafka, "Публикация событий", "Kafka Protocol")
+
+' Внутренние взаимодействия
+Rel(api_server, device_manager, "Команды управления", "Internal API")
+Rel(api_server, cache_manager, "Чтение данных", "Internal API")
+Rel(event_router, cache_manager, "Кеширование событий", "Internal API")
+Rel(cache_manager, local_storage, "Персистентность", "SQL/S3")
+Rel(config_manager, device_manager, "Конфигурации устройств", "Internal API")
+Rel(health_monitor, device_manager, "Проверка состояния", "Internal API")
+Rel(security_module, api_server, "Проверка токенов", "Internal API")
+
+' Взаимодействие с другими контейнерами
+Rel(video_processor, api_server, "Результаты анализа", "REST API")
+Rel(device_controller, event_router, "Команды устройствам", "gRPC")
+
+@enduml

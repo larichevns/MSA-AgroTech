@@ -1,0 +1,39 @@
+@startuml C1_Основное_Решение_Свиноводство
+
+!include ../C4_Context.puml
+
+title Контекстная диаграмма системы мониторинга свиноводства - Основное решение
+
+Person(operator, "Оператор фермы", "Контролирует состояние животных и оборудования")
+Person(vet, "Ветеринар", "Отслеживает здоровье поголовья")
+Person(technician, "Техник", "Обслуживает оборудование")
+
+System(pig_monitoring, "Система мониторинга свиноводства", "Автоматизированная система контроля и управления процессами на свинофермах")
+System_Ext(existing_kafka, "Apache Kafka", "Существующая шина данных АгроТех")
+System_Ext(existing_erp, "1С:Агро", "ERP система компании")
+System_Ext(existing_dwh, "ClickHouse", "Корпоративное хранилище данных")
+System_Ext(existing_datalake, "MinIO Data Lake", "Хранилище неструктурированных данных")
+System_Ext(existing_bi, "Power BI", "Система бизнес-аналитики")
+System_Ext(existing_mobile, "Мобильное приложение АгроТех", "Существующее приложение Flutter")
+System_Ext(existing_portal, "Веб-портал АгроТех", "Корпоративный портал React")
+System_Ext(ml_platform, "ML Platform", "Платформа машинного обучения партнера")
+System_Ext(iot_devices, "IoT оборудование", "Камеры, датчики, контроллеры кормушек")
+System_Ext(notification_service, "Сервис уведомлений", "SMS/Push/Email")
+
+Rel(operator, pig_monitoring, "Мониторит состояние, получает оповещения")
+Rel(vet, pig_monitoring, "Отслеживает здоровье животных")
+Rel(technician, pig_monitoring, "Контролирует состояние оборудования")
+
+Rel(pig_monitoring, existing_kafka, "Публикует события и метрики", "Kafka Protocol")
+Rel(existing_kafka, pig_monitoring, "Получает команды управления", "Kafka Protocol")
+Rel(pig_monitoring, existing_erp, "Синхронизация данных о поголовье и кормах", "REST API")
+Rel(pig_monitoring, existing_dwh, "Сохраняет аналитические данные", "SQL")
+Rel(pig_monitoring, existing_datalake, "Сохраняет видео и сырые данные", "S3 API")
+Rel(existing_bi, existing_dwh, "Читает данные для отчетов", "SQL")
+Rel(existing_mobile, pig_monitoring, "Доступ к функциям мониторинга", "REST API")
+Rel(existing_portal, pig_monitoring, "Управление и мониторинг", "REST API/WebSocket")
+Rel(ml_platform, pig_monitoring, "Предоставляет ML-модели", "gRPC")
+Rel(iot_devices, pig_monitoring, "Передает данные с ферм", "MQTT/Modbus")
+Rel(pig_monitoring, notification_service, "Отправляет критические уведомления", "REST API")
+
+@enduml

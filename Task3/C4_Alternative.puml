@@ -1,0 +1,188 @@
+@startuml C4_Inference_Engine_Code
+
+!include ../C4_Component.puml
+
+
+title Диаграмма кода Inference Engine - Альтернативное решение
+
+package "Inference Engine Component" {
+    
+    package "api" {
+        class InferenceAPI {
+            +Initialize(config Config) error
+            +Predict(input Tensor) (Prediction, error)
+            +PredictBatch(inputs []Tensor) ([]Prediction, error)
+            +LoadModel(modelPath string, modelType ModelType) error
+            +UnloadModel(modelID string) error
+            +GetLoadedModels() []ModelInfo
+        }
+        
+        class Config {
+            +MaxBatchSize: int
+            +GPUDeviceID: int
+            +NumThreads: int
+            +EnableOptimizations: bool
+            +CacheSize: int
+        }
+    }
+    
+    package "core" {
+        abstract class Model {
+            #modelID: string
+            #modelPath: string
+            #inputShape: []int
+            #outputShape: []int
+            #metadata: ModelMetadata
+            +Predict(input Tensor) (Tensor, error)
+            +GetInputShape() []int
+            +GetOutputShape() []int
+            +Warmup() error
+        }
+        
+        class ONNXModel {
+            -session: ort.Session
+            -inputNames: []string
+            -outputNames: []string
+            +Predict(input Tensor) (Tensor, error)
+            +LoadFromPath(path string) error
+            -createSession() error
+        }
+        
+        class TensorFlowLiteModel {
+            -interpreter: tflite.Interpreter
+            -inputTensor: tflite.Tensor
+            -outputTensor: tflite.Tensor
+            +Predict(input Tensor) (Tensor, error)
+            +LoadFromPath(path string) error
+        }
+        
+        class PyTorchModel {
+            -module: torch.Module
+            -device: torch.Device
+            +Predict(input Tensor) (Tensor, error)
+            +LoadFromPath(path string) error
+        }
+    }
+    
+    package "tensors" {
+        class Tensor {
+            -data: []float32
+            -shape: []int
+            -dtype: DataType
+            +GetShape() []int
+            +GetData() []float32
+            +Reshape(newShape []int) Tensor
+            +ToNumpy() numpy.Array
+        }
+        
+        enum DataType {
+            FLOAT32
+            FLOAT64
+            INT32
+            INT64
+            UINT8
+        }
+        
+        class TensorFactory {
+            +FromArray(data []float32, shape []int) Tensor
+            +FromNumpy(array numpy.Array) Tensor
+            +FromImage(image Image) Tensor
+            +Zeros(shape []int) Tensor
+            +Ones(shape []int) Tensor
+        }
+    }
+    
+    package "prediction" {
+        class Prediction {
+            -classID: int
+            -confidence: float32
+            -bbox: BoundingBox
+            -metadata: map[string]interface{}
+            +GetClassID() int
+            +GetConfidence() float32
+            +GetBoundingBox() BoundingBox
+        }
+        
+        class BoundingBox {
+            -x: float32
+            -y: float32
+            -width: float32
+            -height: float32
+            +GetCenter() (float32, float32)
+            +GetArea() float32
+            +IoU(other BoundingBox) float32
+        }
+        
+        class PredictionDecoder {
+            -classNames: []string
+            -threshold: float32
+            +Decode(output Tensor) []Prediction
+            -nonMaxSuppression(predictions []Prediction) []Prediction
+            -applyThreshold(predictions []Prediction) []Prediction
+        }
+    }
+    
+    package "optimization" {
+        class BatchOptimizer {
+            -maxBatchSize: int
+            -timeout: time.Duration
+            -queue: chan InferenceRequest
+            +AddRequest(request InferenceRequest)
+            +ProcessBatch() []InferenceResult
+        }
+        
+        class ModelOptimizer {
+            +OptimizeONNX(model ONNXModel) ONNXModel
+            +Quantize(model Model) Model
+            +Prune(model Model) Model
+        }
+        
+        class MemoryPool {
+            -tensors: []Tensor
+            -maxSize: int
+            +Allocate(shape []int) Tensor
+            +Release(tensor Tensor)
+            +Clear()
+        }
+    }
+    
+    package "monitoring" {
+        class PerformanceMonitor {
+            -metrics: map[string]Metric
+            +RecordInferenceTime(modelID string, duration time.Duration)
+            +RecordBatchSize(size int)
+            +RecordMemoryUsage(bytes int64)
+            +GetMetrics() map[string]Metric
+        }
+        
+        class ModelProfiler {
+            +ProfileModel(model Model, inputs []Tensor) Profile
+            +CompareModels(models []Model) ComparisonReport
+        }
+        
+        class Profile {
+            +InferenceTime: time.Duration
+            +MemoryUsage: int64
+            +Throughput: float64
+            +Bottlenecks: []string
+        }
+    }
+}
+
+' Relationships
+InferenceAPI --> Model : manages
+ONNXModel --|> Model : extends
+TensorFlowLiteModel --|> Model : extends
+PyTorchModel --|> Model : extends
+Model --> Tensor : processes
+InferenceAPI --> PredictionDecoder : uses
+PredictionDecoder --> Prediction : creates
+Prediction --> BoundingBox : contains
+InferenceAPI --> BatchOptimizer : uses
+BatchOptimizer --> MemoryPool : uses
+InferenceAPI --> PerformanceMonitor : reports to
+ModelProfiler --> Model : profiles
+TensorFactory --> Tensor : creates
+ModelOptimizer --> Model : optimizes
+
+@enduml

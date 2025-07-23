@@ -1,0 +1,98 @@
+@startuml C2_Основное_Решение_Контейнеры
+
+!include ../C4_Container.puml
+
+title Контейнерная диаграмма системы мониторинга свиноводства - Основное решение
+
+Person(operator, "Оператор фермы", "Контролирует состояние животных")
+Person(manager, "Менеджер", "Анализирует показатели")
+Person(vet, "Ветеринар", "Отслеживает здоровье")
+
+System_Boundary(pig_monitoring, "Система мониторинга свиноводства") {
+    
+    Container_Boundary(edge_context, "Edge Infrastructure - Ограниченный контекст фермы") {
+        Container(edge_gateway, "Edge Gateway", "Go", "Локальный шлюз, управление устройствами")
+        Container(video_processor, "Video Processor", "Python, OpenCV", "Обработка видеопотоков")
+        Container(ml_inference, "ML Inference Engine", "Python, TensorFlow Lite", "Выполнение ML-моделей")
+        ContainerDb(local_storage, "Local Storage", "SQLite + MinIO", "Локальное хранилище данных")
+        Container(device_controller, "Device Controller", "C++/Rust", "Управление IoT устройствами")
+        Container(sync_agent, "Sync Agent", "Go", "Агент синхронизации с центром")
+    }
+    
+    Container_Boundary(monitoring_context, "Monitoring - Ограниченный контекст мониторинга") {
+        Container(event_processor, "Event Processor", "Java, Spring Boot", "Обработка событий с ферм")
+        Container(alert_manager, "Alert Manager", "Go", "Управление уведомлениями")
+        Container(metrics_collector, "Metrics Collector", "Go, Prometheus", "Сбор метрик")
+        ContainerDb(time_series_db, "Time Series DB", "TimescaleDB", "Хранение метрик")
+    }
+    
+    Container_Boundary(livestock_context, "Livestock Management - Ограниченный контекст управления поголовьем") {
+        Container(livestock_service, "Livestock Service", "Java, Spring Boot", "Управление данными о животных")
+        Container(health_analyzer, "Health Analyzer", "Python", "Анализ здоровья животных")
+        Container(feeding_optimizer, "Feeding Optimizer", "Python", "Оптимизация кормления")
+        ContainerDb(livestock_db, "Livestock DB", "PostgreSQL", "База данных животных")
+    }
+    
+    Container_Boundary(analytics_context, "Analytics - Ограниченный контекст аналитики") {
+        Container(report_generator, "Report Generator", "Python", "Генерация отчетов")
+        Container(prediction_service, "Prediction Service", "Python, Scikit-learn", "Прогнозирование")
+        Container(data_aggregator, "Data Aggregator", "Apache Spark", "Агрегация данных")
+    }
+    
+    Container(api_gateway, "API Gateway", "Kong", "Единая точка входа для API")
+    Container(web_app, "Web Application", "React расширение", "Модуль для портала АгроТех")
+    Container(mobile_module, "Mobile Module", "Flutter модуль", "Модуль для мобильного приложения")
+}
+
+System_Ext(kafka, "Apache Kafka", "Корпоративная шина данных")
+System_Ext(erp, "1С:Агро", "ERP система")
+System_Ext(clickhouse, "ClickHouse", "Корпоративное DWH")
+System_Ext(minio, "MinIO Data Lake", "Хранилище видео и файлов")
+System_Ext(ml_platform, "ML Platform", "Платформа ML партнера")
+System_Ext(notification_service, "Notification Service", "Сервис уведомлений")
+
+' Взаимодействие пользователей
+Rel(operator, mobile_module, "Использует", "HTTPS")
+Rel(manager, web_app, "Использует", "HTTPS")
+Rel(vet, web_app, "Использует", "HTTPS")
+
+' Edge взаимодействия
+Rel(edge_gateway, device_controller, "Управляет устройствами", "gRPC")
+Rel(video_processor, ml_inference, "Передает кадры", "In-memory")
+Rel(ml_inference, edge_gateway, "Результаты анализа", "gRPC")
+Rel(edge_gateway, local_storage, "Сохраняет данные", "SQL/S3")
+Rel(sync_agent, local_storage, "Читает данные", "SQL/S3")
+Rel(sync_agent, kafka, "Отправляет события", "Kafka Protocol")
+
+' Monitoring контекст
+Rel(kafka, event_processor, "События с ферм", "Kafka")
+Rel(event_processor, alert_manager, "Критические события", "gRPC")
+Rel(alert_manager, notification_service, "Отправка уведомлений", "REST")
+Rel(event_processor, metrics_collector, "Метрики", "Prometheus")
+Rel(metrics_collector, time_series_db, "Сохранение метрик", "SQL")
+
+' Livestock контекст
+Rel(event_processor, livestock_service, "События о животных", "gRPC")
+Rel(livestock_service, livestock_db, "CRUD операции", "SQL")
+Rel(health_analyzer, livestock_service, "Запрос данных", "gRPC")
+Rel(feeding_optimizer, livestock_service, "Данные о кормлении", "gRPC")
+Rel(livestock_service, erp, "Синхронизация", "REST API")
+
+' Analytics контекст
+Rel(data_aggregator, clickhouse, "Агрегированные данные", "SQL")
+Rel(data_aggregator, time_series_db, "Чтение метрик", "SQL")
+Rel(report_generator, data_aggregator, "Запрос данных", "gRPC")
+Rel(prediction_service, livestock_db, "Исторические данные", "SQL")
+
+' API Gateway
+Rel(web_app, api_gateway, "API запросы", "HTTPS/WebSocket")
+Rel(mobile_module, api_gateway, "API запросы", "HTTPS")
+Rel(api_gateway, livestock_service, "Проксирование", "gRPC")
+Rel(api_gateway, event_processor, "Проксирование", "gRPC")
+Rel(api_gateway, report_generator, "Проксирование", "gRPC")
+
+' Внешние интеграции
+Rel(ml_inference, ml_platform, "Загрузка моделей", "gRPC")
+Rel(video_processor, minio, "Сохранение видео", "S3 API")
+
+@enduml
