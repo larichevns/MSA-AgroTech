@@ -2,38 +2,56 @@
 
 !include ../C4_Context.puml
 
-title Контекстная диаграмма системы мониторинга свиноводства - Основное решение
+title Контекстная диаграмма системы мониторинга свиноводства - Основное решение (исправленное)
 
 Person(operator, "Оператор фермы", "Контролирует состояние животных и оборудования")
+Person(manager, "Менеджер", "Анализирует показатели и принимает решения")
 Person(vet, "Ветеринар", "Отслеживает здоровье поголовья")
 Person(technician, "Техник", "Обслуживает оборудование")
 
-System(pig_monitoring, "Система мониторинга свиноводства", "Автоматизированная система контроля и управления процессами на свинофермах")
-System_Ext(existing_kafka, "Apache Kafka", "Существующая шина данных АгроТех")
-System_Ext(existing_erp, "1С:Агро", "ERP система компании")
-System_Ext(existing_dwh, "ClickHouse", "Корпоративное хранилище данных")
-System_Ext(existing_datalake, "MinIO Data Lake", "Хранилище неструктурированных данных")
-System_Ext(existing_bi, "Power BI", "Система бизнес-аналитики")
-System_Ext(existing_mobile, "Мобильное приложение АгроТех", "Существующее приложение Flutter")
-System_Ext(existing_portal, "Веб-портал АгроТех", "Корпоративный портал React")
-System_Ext(ml_platform, "ML Platform", "Платформа машинного обучения партнера")
-System_Ext(iot_devices, "IoT оборудование", "Камеры, датчики, контроллеры кормушек")
-System_Ext(notification_service, "Сервис уведомлений", "SMS/Push/Email")
+System(pig_monitoring, "Система мониторинга свиноводства", "Edge-обработка видео, локальная аналитика, асинхронная синхронизация")
 
+' Внутренние системы АгроТех (не External)
+System(existing_kafka, "Apache Kafka", "Корпоративная шина данных АгроТех")
+System(existing_erp, "1С:Агро", "ERP система АгроТех")
+System(existing_dwh, "ClickHouse", "Корпоративное хранилище данных АгроТех")
+System(existing_datalake, "MinIO Data Lake", "Хранилище больших данных АгроТех")
+System(existing_bi, "Power BI", "Система бизнес-аналитики АгроТех")
+System(existing_mobile, "Мобильное приложение АгроТех", "Корпоративное приложение Flutter")
+System(existing_portal, "Веб-портал АгроТех", "Корпоративный портал React")
+
+' Внешние системы (партнеры и поставщики)
+System_Ext(ml_platform, "ML Platform Партнера", "Платформа машинного обучения партнера")
+System_Ext(iot_devices, "IoT оборудование", "Камеры, датчики, контроллеры кормушек")
+System_Ext(notification_service, "Внешний сервис уведомлений", "SMS/Push/Email провайдер")
+
+' Взаимодействия с пользователями
 Rel(operator, pig_monitoring, "Мониторит состояние, получает оповещения")
+Rel(manager, pig_monitoring, "Просматривает аналитику и отчеты")
 Rel(vet, pig_monitoring, "Отслеживает здоровье животных")
 Rel(technician, pig_monitoring, "Контролирует состояние оборудования")
 
-Rel(pig_monitoring, existing_kafka, "Публикует события и метрики", "Kafka Protocol")
+' Асинхронные взаимодействия для решения проблем с интернетом
+Rel(pig_monitoring, existing_kafka, "Асинхронная публикация событий", "Kafka Protocol с батчингом")
 Rel(existing_kafka, pig_monitoring, "Получает команды управления", "Kafka Protocol")
-Rel(pig_monitoring, existing_erp, "Синхронизация данных о поголовье и кормах", "REST API")
-Rel(pig_monitoring, existing_dwh, "Сохраняет аналитические данные", "SQL")
-Rel(pig_monitoring, existing_datalake, "Сохраняет видео и сырые данные", "S3 API")
-Rel(existing_bi, existing_dwh, "Читает данные для отчетов", "SQL")
-Rel(existing_mobile, pig_monitoring, "Доступ к функциям мониторинга", "REST API")
-Rel(existing_portal, pig_monitoring, "Управление и мониторинг", "REST API/WebSocket")
-Rel(ml_platform, pig_monitoring, "Предоставляет ML-модели", "gRPC")
-Rel(iot_devices, pig_monitoring, "Передает данные с ферм", "MQTT/Modbus")
-Rel(pig_monitoring, notification_service, "Отправляет критические уведомления", "REST API")
+Rel(pig_monitoring, existing_erp, "Периодическая синхронизация", "REST API с retry")
+Rel(pig_monitoring, existing_dwh, "Батчевая загрузка аналитики", "Bulk Insert")
+Rel(pig_monitoring, existing_datalake, "Асинхронная загрузка видео", "S3 API с multipart upload")
+Rel(existing_bi, existing_dwh, "Читает агрегированные данные", "SQL")
+Rel(existing_mobile, pig_monitoring, "Локальный доступ через Edge API", "REST API")
+Rel(existing_portal, pig_monitoring, "Мониторинг через Edge API", "REST API/WebSocket")
+Rel(ml_platform, pig_monitoring, "Предоставляет ML-модели для Edge", "Offline models")
+Rel(iot_devices, pig_monitoring, "Локальная передача данных", "MQTT/Modbus")
+Rel(pig_monitoring, notification_service, "Критические уведомления", "REST API с очередью")
+
+' Добавляем примечание о Edge-обработке
+note right of pig_monitoring
+  Edge-компоненты на каждой ферме:
+  - Локальная обработка 20+ видеопотоков
+  - ML-инференс в реальном времени (мс)
+  - Локальные уведомления за <5 сек
+  - Асинхронная синхронизация с центром
+  - Работа при отсутствии интернета
+end note
 
 @enduml
